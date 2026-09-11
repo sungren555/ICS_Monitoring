@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ប្រព័ន្ធប្រមូលទិន្ន័យចុះវាល (Field Data Collection)</title>
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,{
+        %22name%22:%22Field%20Survey%20App%22,
+        %22short_name%22:%22SurveyApp%22,
+        %22start_url%22:%22./index.html%22,
+        %22display%22:%22standalone%22,
+        %22background_color%22:%22%230f172a%22,
+        %22theme_color%22:%22%232563eb%22,
+        %22icons%22:[{
+            %22src%22:%22https://cdn-icons-png.flaticon.com/512/3067/3067406.png%22,
+            %22sizes%22:%22512x512%22,
+            %22type%22:%22image/png%22
+        }]
+    }">
+    <meta name="theme-color" content="#2563eb">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style> 
+        body { font-family: 'Kantumruy Pro', sans-serif; } 
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased min-h-screen pb-12 transition-colors duration-200">
+
+    <header class="bg-blue-700 dark:bg-blue-900 text-white shadow-md sticky top-0 z-50 w-full">
+        <div class="w-full px-3 py-3 flex justify-between items-center">
+            <h1 class="text-sm md:text-lg font-bold truncate">📋 ប្រព័ន្ធប្រមូលទិន្ន័យICS</h1>
+            <div class="flex items-center gap-2 shrink-0">
+                <div id="net-status" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500 text-white">
+                    🔴 Offline
+                </div>
+                <button type="button" id="themeToggleBtn" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow transition flex items-center gap-1.5 border border-white/30 cursor-pointer">
+                    <span id="themeIcon">🌙</span> <span id="themeText">Dark Mode</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full px-2 md:px-4 mt-3 md:mt-6">
+        <div class="bg-white dark:bg-slate-900 rounded-xl md:rounded-2xl shadow-xl overflow-hidden mb-6 border border-slate-100 dark:border-slate-800 w-full">
+            <div class="bg-slate-50 dark:bg-slate-800/50 px-4 md:px-6 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                <h2 class="font-bold text-slate-700 dark:text-slate-200 text-sm md:text-base">សំណុំបែបបទប្រមូលទិន្ន័យចុះវាល</h2>
+            </div>
+            
+            <form id="surveyForm" class="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                <div>
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">កាលវិច្ឆេទ / Date</label>
+                    <input type="date" id="surveyDate" required class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">អ្នកត្រួតពិនិត្យ / Inspector</label>
+                    <select id="inspectorName" required class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
+                        <option value="">-- ជ្រើសរើសឈ្មោះអ្នកពិនិត្យ --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">ភូមិ / Village</label>
+                    <select id="village" required class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
+                        <option value="">-- ជ្រើសរើសភូមិ --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">កូដគ្រួសារ / Family_ID</label>
+                    <input type="text" id="familyId" list="familyList" placeholder="វាយបញ្ចូល ឬរើសកូដគ្រួសារ" required class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
+                    <datalist id="familyList"></datalist>
+                    <p id="farmerListStatus" class="text-[11px] text-slate-400 mt-1"></p>
+                </div>
+                <div>
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">ឈ្មោះប្តី</label>
+                    <input type="text" id="husbandName" placeholder="អាចវាយបញ្ចូលកែប្រែបាន" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">ឈ្មោះប្រពន្ធ</label>
+                    <input type="text" id="wifeName" placeholder="អាចវាយបញ្ចូលកែប្រែបាន" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">អនុលោមភាព / Compliant</label>
+                    <select id="compliant" required class="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
+                        <option value="">-- ជ្រើសរើសស្ថានភាព --</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 flex flex-col md:flex-row justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" id="syncBtn" class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg text-sm hidden shadow cursor-pointer">
+                        ☁️ Upload ទិន្ន័យទៅ Google Sheets
+                    </button>
+                    <button type="submit" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-md cursor-pointer">
+                        💾 រក្សាទុកក្នុងម៉ាស៊ីន (Save Offline)
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 rounded-xl md:rounded-2xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-800 w-full">
+            <div class="px-4 md:px-6 py-3.5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                <h2 class="font-bold text-slate-700 dark:text-slate-200 text-sm md:text-base">ទិន្ន័យក្នុងឧបករណ៍ (Local Database)</h2>
+                <button type="button" id="clearAllBtn" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition cursor-pointer">
+                    🗑️ Clear History ទាំងអស់
+                </button>
+            </div>
+            <div class="overflow-x-auto w-full">
+                <table class="w-full divide-y divide-slate-200 dark:divide-slate-800 text-left">
+                    <thead class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] md:text-xs uppercase font-semibold">
+                        <tr>
+                            <th class="px-3 md:px-4 py-3">កាលវិច្ឆេទ</th>
+                            <th class="px-3 md:px-4 py-3">អ្នកពិនិត្យ</th>
+                            <th class="px-3 md:px-4 py-3">កូដគ្រួសារ</th>
+                            <th class="px-3 md:px-4 py-3">ភូមិ</th>
+                            <th class="px-3 md:px-4 py-3 text-center">ស្ថានភាព</th>
+                            <th class="px-3 md:px-4 py-3 text-center">សកម្មភាព</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-slate-200 dark:divide-slate-800 text-xs md:text-sm text-slate-700 dark:text-slate-300"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        const htmlElement = document.documentElement;
+
+        function setDarkMode(isDark) {
+            if (isDark) {
+                htmlElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                if(themeIcon) themeIcon.textContent = '☀️';
+                if(themeText) themeText.textContent = 'Light Mode';
+            } else {
+                htmlElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                if(themeIcon) themeIcon.textContent = '🌙';
+                if(themeText) themeText.textContent = 'Dark Mode';
+            }
+        }
+
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme === 'dark') {
+            setDarkMode(true);
+        } else {
+            setDarkMode(false);
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            if (htmlElement.classList.contains('dark')) {
+                setDarkMode(false);
+            } else {
+                setDarkMode(true);
+            }
+        });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Failed', err));
+            });
+        }
+
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwta8wyb3jlTATCWtrLNAVv1ju_5Q3cStlINJ9C7Z6TttzOEM9DsN2QEWhZ0sMpkpP3/exec";
+
+        const inspectorSelect = document.getElementById('inspectorName');
+
+        // ===================== Farmer / Family / Inspector lists — loaded live from Google Sheet =====================
+        // No more hardcoded family, village, or inspector lists here. The app fetches the "Farmer"
+        // sheet through the same Apps Script (SCRIPT_URL) every time it loads, so editing the Google
+        // Sheet (including Inspector names in Column G) is enough — no code changes, no Netlify redeploy needed.
+        let familyData = [];
+        const FARMER_CACHE_KEY = 'farmerDataCache';
+        const villageSelect = document.getElementById('village');
+        const familyListEl = document.getElementById('familyList');
+        const farmerListStatus = document.getElementById('farmerListStatus');
+
+        function renderVillageOptions(list) {
+            const villages = [...new Set(list.map(f => f.village).filter(Boolean))].sort();
+            villageSelect.innerHTML = '<option value="">-- ជ្រើសរើសភូមិ --</option>';
+            villages.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v;
+                villageSelect.appendChild(opt);
+            });
+        }
+
+        function renderFamilyDatalist(list) {
+            familyListEl.innerHTML = '';
+            list.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = `${item.husband} & ${item.wife}`;
+                familyListEl.appendChild(opt);
+            });
+        }
+
+        function renderInspectorOptions(names) {
+            const current = inspectorSelect.value;
+            inspectorSelect.innerHTML = '<option value="">-- ជ្រើសរើសឈ្មោះអ្នកពិនិត្យ --</option>';
+            names.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                inspectorSelect.appendChild(opt);
+            });
+            if (current) inspectorSelect.value = current;
+        }
+
+        function applyFarmerData(payload, source) {
+            const farmers = payload.farmers || [];
+            const inspectorNames = payload.inspectors || [];
+            familyData = farmers;
+            renderVillageOptions(farmers);
+            renderFamilyDatalist(farmers);
+            renderInspectorOptions(inspectorNames);
+            const now = new Date().toLocaleString();
+            if (source === 'live') {
+                localStorage.setItem(FARMER_CACHE_KEY, JSON.stringify({ payload, savedAt: now }));
+                farmerListStatus.textContent = `បញ្ជីគ្រួសារ/ភូមិ/អ្នកពិនិត្យ ធ្វើបច្ចុប្បន្នភាព៖ ${now} (${farmers.length} គ្រួសារ, ${inspectorNames.length} អ្នកពិនិត្យ)`;
+            } else {
+                farmerListStatus.textContent = `កំពុងប្រើបញ្ជីដែលរក្សាទុកចុងក្រោយ (${farmers.length} គ្រួសារ) — គ្មានអ៊ីនធឺណិត`;
+            }
+        }
+
+        async function loadFarmerData() {
+            farmerListStatus.textContent = 'កំពុងទាញយកបញ្ជីគ្រួសារ...';
+            try {
+                const res = await fetch(SCRIPT_URL, { method: 'GET' });
+                if (!res.ok) throw new Error('Network response was not ok');
+                const payload = await res.json();
+                applyFarmerData(payload, 'live');
+            } catch (err) {
+                console.error('Failed to load farmer list from Google Sheet', err);
+                const cached = localStorage.getItem(FARMER_CACHE_KEY);
+                if (cached) {
+                    const { payload } = JSON.parse(cached);
+                    applyFarmerData(payload, 'cache');
+                } else {
+                    farmerListStatus.textContent = 'មិនអាចទាញយកបញ្ជីគ្រួសារបានទេ (គ្មាន Internet និងគ្មាន Cache)';
+                }
+            }
+        }
+
+        loadFarmerData();
+
+        const familyIdInput = document.getElementById('familyId');
+        familyIdInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            const found = familyData.find(f => f.id.toLowerCase() === val.toLowerCase());
+            if (found) {
+                document.getElementById('husbandName').value = found.husband;
+                document.getElementById('wifeName').value = found.wife;
+            } else {
+                document.getElementById('husbandName').value = '';
+                document.getElementById('wifeName').value = '';
+            }
+        });
+
+        document.getElementById('surveyDate').valueAsDate = new Date();
+
+        const db = new Dexie('FieldSurveySyncDB');
+        db.version(1).stores({ surveys: '++id, date, inspector, familyId, village, husbandName, wifeName, compliant, status, createdAt' });
+
+        document.getElementById('surveyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await db.surveys.add({
+                date: document.getElementById('surveyDate').value,
+                inspector: document.getElementById('inspectorName').value,
+                familyId: document.getElementById('familyId').value,
+                village: document.getElementById('village').value,
+                husbandName: document.getElementById('husbandName').value,
+                wifeName: document.getElementById('wifeName').value,
+                compliant: document.getElementById('compliant').value,
+                status: 'pending',
+                createdAt: new Date().toLocaleString()
+            });
+            alert('💾 រក្សាទុកក្នុងម៉ាស៊ីនដោយជោគជ័យ!');
+            e.target.reset();
+            document.getElementById('surveyDate').valueAsDate = new Date();
+            loadLocalData();
+        });
+
+        async function loadLocalData() {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+            const records = await db.surveys.toArray();
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">គ្មានទិន្ន័យ។</td></tr>`;
+                return;
+            }
+            records.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 md:px-4 py-3 text-[11px] md:text-xs">${r.date}</td>
+                    <td class="px-3 md:px-4 py-3 font-medium">${r.inspector}</td>
+                    <td class="px-3 md:px-4 py-3 font-semibold text-blue-500">${r.familyId}</td>
+                    <td class="px-3 md:px-4 py-3 text-slate-600 dark:text-slate-300">${r.village}</td>
+                    <td class="px-3 md:px-4 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] md:text-xs font-medium ${r.status === 'synced' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}">
+                            ${r.status === 'synced' ? 'Synced' : 'Pending'}
+                        </span>
+                    </td>
+                    <td class="px-3 md:px-4 py-3 text-center">
+                        <button onclick="deleteRecord(${r.id})" class="bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900 text-red-600 dark:text-red-300 px-2 py-1 rounded text-[11px] font-semibold transition cursor-pointer">
+                            លុប
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.deleteRecord = async function(id) {
+            if (confirm('តើអ្នកប្រាកដជាចង់លុបទិន្ន័យនេះមែនទេ?')) {
+                await db.surveys.delete(id);
+                loadLocalData();
+            }
+        };
+
+        document.getElementById('clearAllBtn').addEventListener('click', async () => {
+            if (confirm('តើអ្នកប្រាកដជាចង់លុបប្រវត្តិទិន្ន័យទាំងអស់នៅក្នុងម៉ាស៊ីនមែនទេ?')) {
+                await db.surveys.clear();
+                loadLocalData();
+                alert('🗑️ លុបទិន្ន័យទាំងអស់បានសម្រេច!');
+            }
+        });
+
+        function updateNetStatus() {
+            const statusDiv = document.getElementById('net-status');
+            const syncBtn = document.getElementById('syncBtn');
+            if (navigator.onLine) {
+                statusDiv.innerHTML = '🟢 Online';
+                statusDiv.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white';
+                syncBtn.classList.remove('hidden');
+            } else {
+                statusDiv.innerHTML = '🔴 Offline';
+                statusDiv.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500 text-white';
+                syncBtn.classList.add('hidden');
+            }
+        }
+
+        window.addEventListener('online', updateNetStatus);
+        window.addEventListener('offline', updateNetStatus);
+
+        const syncBtn = document.getElementById('syncBtn');
+        syncBtn.addEventListener('click', manualSyncData);
+
+        async function manualSyncData() {
+            if (syncBtn.disabled) return;
+
+            if (!navigator.onLine) {
+                alert('⚠️ គ្មានអ៊ីនធ័រណែតទេ សូមព្យាយាមម្ដងទៀតពេលមានសេវា!');
+                return;
+            }
+
+            const pending = await db.surveys.where('status').equals('pending').toArray();
+            if (pending.length === 0) {
+                alert('ℹ️ គ្មានទិន្ន័យថ្មីដែលត្រូវ Upload ទេ។');
+                return;
+            }
+
+            syncBtn.disabled = true;
+            const originalText = syncBtn.innerHTML;
+            syncBtn.innerHTML = "⏳ កំពុង Upload ទិន្ន័យ... សូមរង់ចាំ";
+            syncBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            let successCount = 0;
+            try {
+                for (const item of pending) {
+                    try {
+                        await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            body: JSON.stringify(item)
+                        });
+                        await db.surveys.update(item.id, { status: 'synced' });
+                        successCount++;
+                    } catch (err) {
+                        console.log('Sync error', err);
+                    }
+                }
+                loadLocalData();
+                
+                if (successCount > 0) {
+                    alert('☁️ ទិន្ន័យត្រូវបាន Upload ចូល Google Sheets រួចរាល់!');
+                } else {
+                    alert('⚠️ មានបញ្ហាក្នុងការ Upload សូមព្យាយាមម្ដងទៀត។');
+                }
+            } catch (error) {
+                console.error("Upload process error:", error);
+                alert('❌ មានបញ្ហាកើតឡើង សូមព្យាយាមម្តងទៀត។');
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = originalText;
+                syncBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        loadLocalData();
+        updateNetStatus();
+    </script>
+</body>
+</html>
