@@ -4,20 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ប្រព័ន្ធប្រមូលទិន្ន័យចុះវាល (Field Data Collection)</title>
-    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,{
-        %22name%22:%22Field%20Survey%20App%22,
-        %22short_name%22:%22SurveyApp%22,
-        %22start_url%22:%22./index.html%22,
-        %22display%22:%22standalone%22,
-        %22background_color%22:%22%230f172a%22,
-        %22theme_color%22:%22%232563eb%22,
-        %22icons%22:[{
-            %22src%22:%22https://cdn-icons-png.flaticon.com/512/3067/3067406.png%22,
-            %22sizes%22:%22512x512%22,
-            %22type%22:%22image/png%22
-        }]
-    }">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
+
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+    <!-- iOS "Add to Home Screen" support -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SurveyApp">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
